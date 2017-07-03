@@ -9,7 +9,7 @@ import math
 ["check_network_structure", "verify_dataset_shape_and_modify", "print_training_status", "print_training_results"]
 
 
-def backpropagation_foundation(network, trainingset, testset, cost_function, calculate_dW, evaluation_function = None, ERROR_LIMIT = 1e-3, max_iterations = (), batch_size = 0, input_layer_dropout = 0.0, hidden_layer_dropout = 0.0, print_rate = 1000, save_trained_network = False, **kwargs):
+def backpropagation_foundation(network, trainingset, testset, cost_function, calculate_dW, evaluation_function = None, ERROR_LIMIT = 1e-3, max_iterations = (), batch_size = 0, input_layer_dropout = 0.0, hidden_layer_dropout = 0.0, print_rate = 1000, save_trained_network = False, early_stop = (), **kwargs):
     check_network_structure( network, cost_function ) # check for special case topology requirements, such as softmax
     
     training_data, training_targets = verify_dataset_shape_and_modify( network, trainingset )
@@ -33,8 +33,10 @@ def backpropagation_foundation(network, trainingset, testset, cost_function, cal
     reversed_layer_indexes     = range( len(network.layers) )[::-1]
     
     epoch                      = 0
+    acumulated_rise_error      = 0    # used for early stop
     while error > ERROR_LIMIT and epoch < max_iterations:
         epoch += 1
+        last_error = error
         
         random.shuffle(batch_indices) # Shuffle the order in which the batches are processed between the iterations
         
@@ -75,7 +77,13 @@ def backpropagation_foundation(network, trainingset, testset, cost_function, cal
             #end weight adjustment loop
         
         error = calculate_print_error(network.update( test_data ), test_targets )
-        
+        if last_error < error:
+            acumulated_rise_error += 1
+            if acumulated_rise_error == early_stop:
+                print '[training] Early Stop (Error increased for more than ', acumulated_rise_error, ' epochs)'
+                break
+        else:
+            acumulated_rise_error = max(acumulated_rise_error - 1, 0)
         if epoch%print_rate==0:
             # Show the current training status
             print "[training] Current error:", error, "\tEpoch:", epoch
